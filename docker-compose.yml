@@ -1,0 +1,25 @@
+# Dev / manual run. On Unraid, prefer the template (unraid-template.xml).
+# Container-owned mount model: the container mounts the iPod partition itself so it can
+# eject cleanly. It finds the iPod by FAT label (default IPOD) at mount time, so the
+# container starts with NO iPod attached and survives device-node changes across replugs.
+# Disable Unassigned Devices automount for the iPod so there is a single owner.
+services:
+  ipodsync:
+    build: .
+    image: ipodsync:local
+    container_name: ipodsync
+    ports:
+      - "8580:8580"
+    volumes:
+      - /mnt/user/Data/media/Music:/music:ro
+      - /mnt/user/appdata/ipodsync/config:/config
+      - /dev:/dev                  # see hot-plugged block devices + /dev/disk/by-label
+    device_cgroup_rules:
+      - "b *:* rmw"                # allow access to block devices that appear at runtime
+    cap_add:
+      - SYS_RAWIO                  # SCSI inquiry (ipod-read-sysinfo-extended) + eject
+      - SYS_ADMIN                  # mount / umount inside the container
+    security_opt:
+      - seccomp=unconfined         # Docker's default seccomp blocks the mount() syscall
+      - apparmor=unconfined
+    restart: unless-stopped

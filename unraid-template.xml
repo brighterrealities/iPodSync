@@ -1,0 +1,25 @@
+<?xml version="1.0"?>
+<Container version="2">
+  <Name>iPodSync</Name>
+  <Repository>ipodsync:local</Repository>
+  <Registry/>
+  <Network>bridge</Network>
+  <MyIP/>
+  <Shell>bash</Shell>
+  <Privileged>false</Privileged>
+  <Support/>
+  <Project/>
+  <Overview>Direct iPod Classic sync for Unraid. Transcodes FLAC to ALAC and writes the iTunesDB straight to a USB-connected iPod (libgpod/gpod-utils), with incremental updates and a web UI. Build the image locally from the project Dockerfile before adding this container.</Overview>
+  <Category>MediaApp:Music</Category>
+  <WebUI>http://[IP]:[PORT:8580]/</WebUI>
+  <Icon>https://raw.githubusercontent.com/brighterrealities/iPodSync/main/webapp/static/icon.png</Icon>
+  <ExtraParams>--cap-add SYS_RAWIO --cap-add SYS_ADMIN --security-opt seccomp=unconfined --security-opt apparmor=unconfined --device-cgroup-rule='b *:* rmw' -v /dev:/dev</ExtraParams>
+  <PostArgs/>
+  <DateInstalled/>
+  <Description>Direct iPod Classic sync: FLAC-&gt;ALAC transcode + iTunesDB write over USB, incremental, web UI.
+NOTE: the iPod is auto-detected by FAT label (default IPOD) — no device node to configure. Disable Unassigned Devices automount for the iPod so this container is the sole owner. Build the image locally (docker build -t ipodsync:local .) before applying.</Description>
+  <Config Name="WebUI Port" Target="8580" Default="8580" Mode="tcp" Description="Web interface port" Type="Port" Display="always" Required="true" Mask="false">8580</Config>
+  <Config Name="Music library (source)" Target="/music" Default="/mnt/user/Data/media/Music" Mode="ro" Description="Read-only source library" Type="Path" Display="always" Required="true" Mask="false">/mnt/user/Data/media/Music</Config>
+  <Config Name="Config / state" Target="/config" Default="/mnt/user/appdata/ipodsync/config" Mode="rw" Description="Settings, sync state, backups" Type="Path" Display="always" Required="true" Mask="false">/mnt/user/appdata/ipodsync/config</Config>
+  <Config Name="iPod label" Target="IPODSYNC_LABEL" Default="IPOD" Mode="" Description="FAT label used to auto-detect the iPod (mounts it at /ipod). Disable Unassigned Devices automount for the iPod so the container is the sole owner." Type="Variable" Display="always" Required="false" Mask="false">IPOD</Config>
+</Container>

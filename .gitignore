@@ -1,0 +1,20 @@
+# Claude Code workspace
+.claude/
+
+# Local scratch / dev
+scratch_*
+*.log
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# OS
+.DS_Store
+
+# iPod state / backups (never commit)
+config/
+*.sqlite
+ipod-backup-*/

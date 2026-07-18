@@ -1,0 +1,243 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>iPodSync</title>
+<link rel="icon" href="/icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" sizes="180x180" href="/icon-180.png">
+<link rel="apple-touch-icon" href="/icon.png">
+<link rel="manifest" href="/manifest.webmanifest">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="iPodSync">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#0f1115">
+<style>
+  :root { color-scheme: light dark; --bg:#f6f7f9; --card:#fff; --fg:#1a1d21; --mut:#6b7280;
+          --line:#e5e7eb; --accent:#2563eb; --ok:#16a34a; --warn:#d97706; --err:#dc2626; }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg:#0f1115; --card:#171a21; --fg:#e5e7eb; --mut:#9099a5; --line:#262b34; --accent:#3b82f6; }
+  }
+  * { box-sizing: border-box; }
+  body { margin:0; font:14px/1.5 system-ui, sans-serif; background:var(--bg); color:var(--fg);
+         padding-bottom: env(safe-area-inset-bottom); }
+  header { position:sticky; top:0; z-index:5; background:var(--bg);
+           padding: calc(10px + env(safe-area-inset-top)) calc(16px + env(safe-area-inset-right))
+                    10px calc(16px + env(safe-area-inset-left));
+           border-bottom:1px solid var(--line); display:flex; align-items:center; gap:8px; }
+  header h1 { font-size:16px; margin:0; font-weight:650; }
+  header button { padding:6px 12px; }
+  .wrap { max-width:920px; margin:0 auto;
+          padding: 12px calc(14px + env(safe-area-inset-right)) 14px calc(14px + env(safe-area-inset-left));
+          display:grid; gap:12px; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:10px; padding:14px; }
+  .card h2 { font-size:12px; text-transform:uppercase; letter-spacing:.04em; color:var(--mut); margin:0 0 10px; }
+  .row { display:flex; gap:14px; flex-wrap:wrap; }
+  .stat { flex:1; min-width:110px; }
+  .stat .v { font-size:22px; font-weight:650; }
+  .stat .l { color:var(--mut); font-size:12px; }
+  .pill { display:inline-flex; align-items:center; gap:6px; font-size:12px; padding:3px 9px; border-radius:999px; border:1px solid var(--line); }
+  .dot { width:8px; height:8px; border-radius:50%; background:var(--mut); }
+  .dot.ok{background:var(--ok)} .dot.warn{background:var(--warn)} .dot.err{background:var(--err)}
+  label { display:block; font-size:12px; color:var(--mut); margin:8px 0 3px; }
+  input[type=text], input[type=number], select { width:100%; padding:7px 9px; border:1px solid var(--line);
+      border-radius:7px; background:var(--bg); color:var(--fg); font:inherit; }
+  .grid2 { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+  .btns { display:flex; gap:10px; flex-wrap:wrap; margin-top:6px; }
+  button { font:inherit; font-weight:600; padding:9px 16px; border-radius:8px; border:1px solid var(--line);
+      background:var(--card); color:var(--fg); cursor:pointer; }
+  button.primary { background:var(--accent); border-color:var(--accent); color:#fff; }
+  button:disabled { opacity:.5; cursor:not-allowed; }
+  .progress { margin-top:14px; }
+  .pbar { height:10px; border-radius:999px; background:var(--bg); border:1px solid var(--line); overflow:hidden; }
+  .pfill { height:100%; width:0%; background:var(--accent); transition:width .3s ease; }
+  .pfill.indet { width:35% !important; animation:indet 1.1s ease-in-out infinite; }
+  @keyframes indet { 0%{margin-left:-35%} 100%{margin-left:100%} }
+  .pmeta { display:flex; justify-content:space-between; font-size:12px; color:var(--mut); margin-top:6px; }
+  details { margin-top:12px; }
+  summary { cursor:pointer; font-size:12px; color:var(--mut); }
+  pre#log { background:#0b0d11; color:#cbd5e1; border-radius:8px; padding:12px; height:260px; overflow:auto;
+      font:12px/1.5 ui-monospace, monospace; white-space:pre-wrap; margin:8px 0 0; }
+  .muted { color:var(--mut); }
+  .chk { display:flex; align-items:center; gap:8px; margin-top:14px; }
+  .chk input { width:auto; }
+</style>
+</head>
+<body>
+<header><span style="font-size:20px">🎵</span><h1>iPodSync</h1>
+  <span id="conn" class="pill" style="margin-left:auto"><span class="dot"></span><span>—</span></span>
+  <button id="btn-mount" style="display:none">Mount</button>
+  <button id="btn-eject">Eject</button>
+</header>
+<div class="wrap">
+
+  <div class="card">
+    <h2>Status</h2>
+    <div class="row">
+      <div class="stat"><div class="v" id="s-tracks">—</div><div class="l">iPod tracks</div></div>
+      <div class="stat"><div class="v" id="s-free">—</div><div class="l">Free space</div></div>
+      <div class="stat"><div class="v" id="s-cap">—</div><div class="l">Capacity</div></div>
+      <div class="stat"><div class="v" id="s-last">—</div><div class="l">Last sync (+/−)</div></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Sync</h2>
+    <div class="btns">
+      <button id="btn-dry">Dry run (preview)</button>
+      <button id="btn-sync" class="primary">Sync now</button>
+      <span id="job-state" class="muted" style="align-self:center"></span>
+    </div>
+
+    <div class="progress" id="progress" style="display:none">
+      <div class="pbar"><div class="pfill" id="pfill"></div></div>
+      <div class="pmeta"><span id="pphase">—</span><span id="pcount"></span></div>
+    </div>
+
+    <div id="plan" class="row" style="margin-top:12px; display:none">
+      <div class="stat"><div class="v" id="p-add">—</div><div class="l">to add</div></div>
+      <div class="stat"><div class="v" id="p-remove">—</div><div class="l">to remove</div></div>
+      <div class="stat"><div class="v" id="p-recon">—</div><div class="l">reconciled</div></div>
+      <div class="stat"><div class="v" id="p-unch">—</div><div class="l">unchanged</div></div>
+    </div>
+
+    <details>
+      <summary>Raw log</summary>
+      <pre id="log"></pre>
+    </details>
+  </div>
+
+  <div class="card">
+    <h2>Settings</h2>
+    <div class="grid2">
+      <div><label>Music library (source)</label><input type="text" id="f-music"></div>
+      <div><label>iPod mount</label><input type="text" id="f-ipod"></div>
+      <div><label>iPod label (auto-detect)</label><input type="text" id="f-label" placeholder="IPOD"></div>
+      <div><label>Detected device</label><input type="text" id="f-detected" disabled></div>
+      <div><label>Transcode FLAC to</label>
+        <select id="f-encoder"><option value="alac">ALAC (lossless)</option>
+          <option value="aac-ffmpeg">AAC</option><option value="mp3">MP3</option></select></div>
+      <div><label>Threads (0 = auto)</label><input type="number" id="f-threads" min="0" max="16"></div>
+    </div>
+    <div class="chk"><input type="checkbox" id="f-prune"><label for="f-prune" style="margin:0">Prune — remove iPod tracks no longer in the library (full mirror)</label></div>
+    <div class="chk"><input type="checkbox" id="f-autosync"><label for="f-autosync" style="margin:0">Auto-sync when the iPod is connected</label></div>
+    <div class="chk"><input type="checkbox" id="f-autoeject"><label for="f-autoeject" style="margin:0">Auto-eject after a successful sync</label></div>
+    <div class="btns"><button id="btn-save">Save settings</button></div>
+  </div>
+</div>
+
+<script>
+const $ = s => document.querySelector(s);
+const fmtBytes = n => { if(n==null) return "—"; const u=["B","KB","MB","GB","TB"]; let i=0;
+  while(n>=1024&&i<u.length-1){n/=1024;i++;} return n.toFixed(i?1:0)+" "+u[i]; };
+
+let nextIdx = 0, polling = false, planTotals = null;
+
+async function loadSettings(){
+  const s = await (await fetch("/api/settings")).json();
+  $("#f-music").value=s.music; $("#f-ipod").value=s.ipod; $("#f-label").value=s.label||"IPOD";
+  $("#f-encoder").value=s.encoder||"alac"; $("#f-threads").value=s.threads||0; $("#f-prune").checked=!!s.prune;
+  $("#f-autosync").checked=s.auto_sync!==false; $("#f-autoeject").checked=s.auto_eject!==false;
+}
+async function saveSettings(){
+  const body={music:$("#f-music").value, ipod:$("#f-ipod").value, label:$("#f-label").value,
+    encoder:$("#f-encoder").value, threads:parseInt($("#f-threads").value||"0"),
+    prune:$("#f-prune").checked, auto_sync:$("#f-autosync").checked, auto_eject:$("#f-autoeject").checked};
+  await fetch("/api/settings",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)});
+  $("#btn-save").textContent="Saved ✓"; setTimeout(()=>$("#btn-save").textContent="Save settings",1200);
+}
+async function refreshStatus(){
+  try{
+    const s = await (await fetch("/api/status")).json();
+    const c=$("#conn"); c.querySelector(".dot").className="dot "+(s.mounted?"ok":(s.partition_present?"warn":"err"));
+    c.querySelector("span:last-child").textContent =
+      s.mounted ? "iPod mounted" : (s.partition_present ? "connected, not mounted" : "not connected");
+    $("#btn-eject").style.display = s.mounted ? "" : "none";
+    $("#btn-mount").style.display = (!s.mounted && s.partition_present) ? "" : "none";
+    $("#f-detected").value = s.device || "(none)";
+    $("#s-free").textContent = fmtBytes(s.free_bytes);
+    $("#s-cap").textContent = fmtBytes(s.capacity_bytes);
+    if(s.last_sync){ $("#s-tracks").textContent = s.last_sync.ipod_count ?? "—";
+      $("#s-last").textContent = "+"+(s.last_sync.added||0)+" / −"+(s.last_sync.removed||0); }
+    $("#btn-sync").disabled=s.running; $("#btn-dry").disabled=s.running;
+    // resume live view if a job is running and we're not already polling
+    if(s.running && !polling){ nextIdx=0; $("#log").textContent=""; startPolling(); }
+  }catch(e){}
+}
+function setProgress(pct, indet){
+  $("#progress").style.display="";
+  const f=$("#pfill");
+  if(indet){ f.classList.add("indet"); }
+  else { f.classList.remove("indet"); f.style.width=(pct||0)+"%"; }
+}
+function handleEvent(ev){
+  const e=ev.event;
+  if(e==="add_log"||e==="remove_log"){ appendLog(ev.line); }
+  else appendLog(JSON.stringify(ev));
+
+  if(e==="scan_ipod_start"){ $("#pphase").textContent="Reading iPod…"; setProgress(0,true); $("#pcount").textContent=""; }
+  else if(e==="scan_source_start"){ $("#pphase").textContent="Scanning library…"; setProgress(0,true); }
+  else if(e==="scan_source_progress"){ $("#pcount").textContent=ev.count+" files"; }
+  else if(e==="plan"){ planTotals=ev; applyPlan(ev);
+    $("#pphase").textContent="Planned"; $("#pcount").textContent=ev.to_add+" add / "+ev.to_remove+" remove"; setProgress(0,false); }
+  else if(e==="add_start"){ $("#pphase").textContent="Adding tracks…"; setProgress(0,false); }
+  else if(e==="add_log"){ const m=ev.line.match(/\[\s*(\d+)\/\s*(\d+)\]/);
+    if(m){ const d=+m[1], t=+m[2]; setProgress(t?100*d/t:0,false); $("#pcount").textContent="added "+d+"/"+t; } }
+  else if(e==="add_done"){ setProgress(100,false); }
+  else if(e==="remove_start"){ $("#pphase").textContent="Removing tracks…"; $("#pcount").textContent=(planTotals?planTotals.to_remove:"")+" to remove"; setProgress(100,true); }
+  else if(e==="verify_start"){ $("#pphase").textContent="Verifying…"; setProgress(100,true); }
+  else if(e==="done"){ $("#pphase").textContent=ev.dry_run?"Dry run complete":"Sync complete";
+    $("#pcount").textContent="+"+ev.added+" / −"+ev.removed+"  ("+ev.elapsed_s+"s)"; setProgress(100,false); }
+  else if(e==="auto_eject"){ $("#pphase").textContent="Ejected — safe to unplug"; }
+  else if(e==="auto_eject_failed"){ $("#pphase").textContent="Sync done — eject failed"; $("#pcount").textContent=ev.message||""; }
+  else if(e==="error"){ $("#pphase").textContent="Error"; $("#pcount").textContent=ev.message||""; setProgress(0,false); }
+}
+function applyPlan(ev){
+  $("#plan").style.display="flex";
+  $("#p-add").textContent=ev.to_add; $("#p-remove").textContent=ev.to_remove;
+  $("#p-recon").textContent=ev.reconciled; $("#p-unch").textContent=ev.unchanged;
+}
+function appendLog(txt){ const l=$("#log"); l.textContent+=txt+"\n"; l.scrollTop=l.scrollHeight; }
+
+async function poll(){
+  try{
+    const r=await (await fetch("/api/events?since="+nextIdx)).json();
+    for(const ev of r.events) handleEvent(ev);
+    nextIdx = r.next ?? nextIdx;
+    if(!r.running){ polling=false; $("#job-state").textContent=""; refreshStatus(); return; }
+  }catch(e){ /* keep polling through transient errors */ }
+  if(polling) setTimeout(poll, 1000);
+}
+function startPolling(){ if(polling) return; polling=true; $("#job-state").textContent="running…"; poll(); }
+
+async function startJob(dry){
+  $("#log").textContent=""; $("#plan").style.display="none"; planTotals=null;
+  $("#btn-sync").disabled=true; $("#btn-dry").disabled=true;
+  const r=await fetch("/api/sync?dry_run="+(dry?"true":"false"),{method:"POST"});
+  if(!r.ok){ const j=await r.json().catch(()=>({detail:r.statusText}));
+    appendLog("error: "+(j.detail||r.status)); refreshStatus(); return; }
+  nextIdx=0; startPolling();
+}
+async function doMount(){
+  const r=await fetch("/api/mount",{method:"POST"});
+  if(!r.ok){ const j=await r.json().catch(()=>({detail:r.statusText})); alert("mount failed: "+(j.detail||r.status)); }
+  refreshStatus();
+}
+async function doEject(){
+  const r=await fetch("/api/eject",{method:"POST"}); const j=await r.json().catch(()=>({}));
+  if(!r.ok) alert("Eject failed: "+(j.detail||r.status));
+  else if(j.ejected_via && j.ejected_via!=="device-gone") alert("iPod ejected — safe to unplug.");
+  else if(j.unmounted) alert("iPod unmounted — safe to unplug.");
+  else alert("iPod was not mounted.");
+  refreshStatus();
+}
+$("#btn-save").onclick=saveSettings;
+$("#btn-mount").onclick=doMount;
+$("#btn-eject").onclick=doEject;
+$("#btn-dry").onclick=()=>startJob(true);
+$("#btn-sync").onclick=()=>startJob(false);
+loadSettings(); refreshStatus(); setInterval(()=>{ if(!polling) refreshStatus(); },4000);
+</script>
+</body>
+</html>
