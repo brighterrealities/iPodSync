@@ -91,7 +91,3 @@ docker exec ipodsync python3 -m engine.sync --dry-run     # or: --no-prune, or p
 - Reported capacity reflects what the firmware exposes (often ~1 TB on modded units), not raw SSD size.
 - Identity matching is deliberately strict to avoid false matches; a first sync after a
   library re-tag may show larger add/remove counts, then converges.
-
-## Backlog
-
-- NTFY notifications: connected, sync started, finished, ejected.
