@@ -8,7 +8,7 @@ Built on [gpod-utils](https://github.com/whatdoineed2do/gpod-utils) / libgpod.
 
 ## How it works
 
-- **Source of truth**: the main library at `/mnt/user/Data/media/Music` (untouched, read-only).
+- **Source of truth**: the main library at `/mnt/user/Music` (untouched, read-only).
 - **Transcode + DB write**: `gpod-cp` transcodes FLAC→ALAC via ffmpeg and writes the
   hash72-signed iTunesDB the iPod Classic firmware requires.
 - **Incremental**: `gpod-ls -Q` dumps the current iTunesDB to SQLite; the engine diffs
@@ -30,8 +30,8 @@ the engine generates it from the raw device (`ipod-read-sysinfo-extended`) on fi
 - iPod formatted **FAT32** (Windows/"PC" firmware). Mac/HFS+ needs a one-time reformat.
 - Unraid **Unassigned Devices** plugin to see the disk. **Disable UD automount for the
   iPod** — the container mounts it itself (so it can eject cleanly). One owner only.
-- Note the whole-disk device and partition (e.g. `/dev/sdg` and `/dev/sdg1`) — `lsblk`
-  shows the `iPod`/`IPOD` disk.
+- The iPod is auto-detected by its FAT **label** (default `IPOD`), so there's no device
+  node to configure.
 
 ## Mount model
 
@@ -57,7 +57,7 @@ docker run -d --name ipodsync --restart unless-stopped -p 8580:8580 \
   --cap-add SYS_RAWIO --cap-add SYS_ADMIN \
   --security-opt seccomp=unconfined --security-opt apparmor=unconfined \
   --device-cgroup-rule='b *:* rmw' -v /dev:/dev \
-  -v /mnt/user/Data/media/Music:/music:ro \
+  -v /mnt/user/Music:/music:ro \
   -v /mnt/user/appdata/ipodsync/config:/config \
   ipodsync:local
 ```
@@ -88,12 +88,10 @@ docker exec ipodsync python3 -m engine.sync --dry-run     # or: --no-prune, or p
 - The iPod is found by FAT label (default `IPOD`); no device node is pinned, so replugs
   and node changes are handled automatically. Set a different label in Settings if needed.
 - After replugging, the iPod auto-mounts if the container (re)starts, or click **Mount**.
-- Reported capacity reflects what the firmware exposes (~1 TB here), not raw SSD size.
+- Reported capacity reflects what the firmware exposes (often ~1 TB on modded units), not raw SSD size.
 - Identity matching is deliberately strict to avoid false matches; a first sync after a
   library re-tag may show larger add/remove counts, then converges.
 
 ## Backlog
 
-- Auto-start sync when the iPod is connected (Unassigned Devices mount hook / udev).
-- Auto-unmount after a successful sync.
 - NTFY notifications: connected, sync started, finished, ejected.

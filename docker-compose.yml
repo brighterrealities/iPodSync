@@ -11,7 +11,7 @@ services:
     ports:
       - "8580:8580"
     volumes:
-      - /mnt/user/Data/media/Music:/music:ro
+      - /mnt/user/Music:/music:ro
       - /mnt/user/appdata/ipodsync/config:/config
       - /dev:/dev                  # see hot-plugged block devices + /dev/disk/by-label
     device_cgroup_rules:

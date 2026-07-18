@@ -19,7 +19,7 @@
   <Description>Direct iPod Classic sync: FLAC-&gt;ALAC transcode + iTunesDB write over USB, incremental, web UI.
 NOTE: the iPod is auto-detected by FAT label (default IPOD) — no device node to configure. Disable Unassigned Devices automount for the iPod so this container is the sole owner. Build the image locally (docker build -t ipodsync:local .) before applying.</Description>
   <Config Name="WebUI Port" Target="8580" Default="8580" Mode="tcp" Description="Web interface port" Type="Port" Display="always" Required="true" Mask="false">8580</Config>
-  <Config Name="Music library (source)" Target="/music" Default="/mnt/user/Data/media/Music" Mode="ro" Description="Read-only source library" Type="Path" Display="always" Required="true" Mask="false">/mnt/user/Data/media/Music</Config>
+  <Config Name="Music library (source)" Target="/music" Default="/mnt/user/Music" Mode="ro" Description="Read-only source library" Type="Path" Display="always" Required="true" Mask="false">/mnt/user/Music</Config>
   <Config Name="Config / state" Target="/config" Default="/mnt/user/appdata/ipodsync/config" Mode="rw" Description="Settings, sync state, backups" Type="Path" Display="always" Required="true" Mask="false">/mnt/user/appdata/ipodsync/config</Config>
   <Config Name="iPod label" Target="IPODSYNC_LABEL" Default="IPOD" Mode="" Description="FAT label used to auto-detect the iPod (mounts it at /ipod). Disable Unassigned Devices automount for the iPod so the container is the sole owner." Type="Variable" Display="always" Required="false" Mask="false">IPOD</Config>
 </Container>
