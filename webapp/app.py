@@ -38,6 +38,12 @@ DEFAULTS = {
 }
 
 
+# Set on eject, cleared when the iPod actually goes away (or on an explicit Mount).
+# Without it the watcher re-mounts within 5s: a SCSI-stopped iPod keeps its block node
+# and by-label link until it is physically unplugged, so "ejected" would never stick.
+_EJECT_HOLD = False
+
+
 def resolve_devices(s: dict) -> tuple[str, str]:
     """(partition, whole_disk). Prefer explicit settings when the node exists, else
     auto-detect the iPod by label — so the container starts with no iPod attached and
@@ -156,10 +162,12 @@ async def post_settings(payload: dict):
 
 def _auto_eject_after_sync(emit) -> None:
     """Eject after a successful sync so the iPod is ready to unplug (hands-off flow)."""
+    global _EJECT_HOLD
     s = load_settings()
     _part, dev = resolve_devices(s)
     try:
         result = eject_ipod(s["ipod"], dev)
+        _EJECT_HOLD = True
         emit({"event": "auto_eject", "result": result})
     except MountError as e:
         emit({"event": "auto_eject_failed", "message": str(e)})
@@ -169,7 +177,10 @@ def _device_watcher() -> None:
     """Detect the iPod being connected (partition appears by label), mount it, and — if
     enabled — start one sync per connect. `armed` is set while the iPod is absent and
     cleared once a connect has been serviced, so it fires once per plug-in and never on a
-    container restart with the iPod already attached (armed starts False when present)."""
+    container restart with the iPod already attached (armed starts False when present).
+    After an eject the watcher stands down until the device is gone, so auto-mode never
+    remounts an iPod the user just told it to release."""
+    global _EJECT_HOLD
     armed = not bool(resolve_devices(load_settings())[0])
     while True:
         time.sleep(5)
@@ -178,6 +189,9 @@ def _device_watcher() -> None:
             part, _dev = resolve_devices(s)
             if not part:                     # disconnected — re-arm for next connect
                 armed = True
+                _EJECT_HOLD = False
+                continue
+            if _EJECT_HOLD:                  # ejected, still plugged in — leave it alone
                 continue
             if not is_mounted(s["ipod"]):
                 try:
@@ -210,12 +224,14 @@ def _startup():
 
 @app.post("/api/mount")
 def api_mount():
+    global _EJECT_HOLD
     s = load_settings()
     part, _dev = resolve_devices(s)
     if not part:
         raise HTTPException(400, "iPod not detected (no partition with the configured label; connect it)")
     try:
         did = mount_ipod(part, s["ipod"])
+        _EJECT_HOLD = False      # explicit Mount overrides a prior eject
     except MountError as e:
         raise HTTPException(400, str(e))
     return {"mounted": True, "changed": did}
@@ -223,12 +239,14 @@ def api_mount():
 
 @app.post("/api/eject")
 def api_eject():
+    global _EJECT_HOLD
     if JOB.is_running():
         raise HTTPException(409, "a sync is running; wait for it to finish before ejecting")
     s = load_settings()
     _part, dev = resolve_devices(s)
     try:
         result = eject_ipod(s["ipod"], dev)
+        _EJECT_HOLD = True
     except MountError as e:
         raise HTTPException(400, str(e))
     return {"ejected": True, **result}
@@ -245,6 +263,7 @@ def status():
         "connected": connected,
         "mounted": mounted,
         "partition_present": bool(part),
+        "ejected": _EJECT_HOLD and not mounted,
         "device": part,
         "running": JOB.is_running(),
         "job_kind": JOB.kind,

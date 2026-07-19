@@ -152,7 +152,9 @@ async function refreshStatus(){
     const s = await (await fetch("/api/status")).json();
     const c=$("#conn"); c.querySelector(".dot").className="dot "+(s.mounted?"ok":(s.partition_present?"warn":"err"));
     c.querySelector("span:last-child").textContent =
-      s.mounted ? "iPod mounted" : (s.partition_present ? "connected, not mounted" : "not connected");
+      s.mounted ? "iPod mounted"
+      : s.ejected ? "ejected — safe to unplug"
+      : (s.partition_present ? "connected, not mounted" : "not connected");
     $("#btn-eject").style.display = s.mounted ? "" : "none";
     $("#btn-mount").style.display = (!s.mounted && s.partition_present) ? "" : "none";
     $("#f-detected").value = s.device || "(none)";
