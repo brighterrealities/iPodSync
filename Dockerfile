@@ -1,6 +1,9 @@
 # iPodSync — direct iPod Classic sync for Unraid
 # Builds gpod-utils (libgpod 0.8.3) + ffmpeg, runs the sync engine + FastAPI web UI.
-FROM debian:bookworm-slim AS build
+# trixie, not bookworm: gpod-utils needs ffmpeg 7 (libavcodec 61) — its pre-7 compat
+# shim for the FF_PROFILE_*/AV_PROFILE_* rename is a no-op, so it will not build against
+# bookworm's ffmpeg 5. trixie also carries libgpod 0.8.3, so nothing else changes.
+FROM debian:trixie-slim AS build
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
         build-essential autoconf automake libtool pkg-config git ca-certificates \
@@ -8,15 +11,18 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
         libavformat-dev libavcodec-dev libavutil-dev libswresample-dev libswscale-dev \
     && rm -rf /var/lib/apt/lists/*
 
-# gpod-utils: gpod-cp / gpod-ls / gpod-rm / gpod-verify (autotools; needs autoreconf --install)
+# gpod-utils: gpod-cp / gpod-ls / gpod-rm / gpod-verify / gpod-playlist / gpod-tag.
+# We build the d3vil-st fork, not whatdoineed2do upstream. It carries the iPod Classic
+# whitelist we used to apply by hand (identical patch to gpod_write_supported()'s
+# `supported[]`), plus fixes upstream lacks and we need:
+#   - caps ALAC output at 48 kHz (upstream writes 96/176/192 kHz ALAC the Classic can't decode)
+#   - writes albumartist / compilation / sort tags (upstream silently drops them)
+#   - embeds cover art in transcoded m4a; preserves disc + total-track numbering
+#   - adds gpod-playlist (playlist CRUD + iTunes-compatible smart playlists)
+ARG GPOD_UTILS_REPO=https://github.com/d3vil-st/gpod-utils.git
 ARG GPOD_UTILS_REF=master
-RUN git clone --depth 1 --branch "${GPOD_UTILS_REF}" https://github.com/whatdoineed2do/gpod-utils.git /src/gpod-utils \
+RUN git clone --depth 1 --branch "${GPOD_UTILS_REF}" "${GPOD_UTILS_REPO}" /src/gpod-utils \
     && cd /src/gpod-utils \
-    # Whitelist iPod Classic (gen 1-3) in gpod_write_supported()'s `supported[]` array.
-    # Upstream gates Classic behind -F because hash72 devices are deemed unreliable, and
-    # gpod-rm has NO force flag. With a valid SysInfoExtended present, libgpod writes a correct
-    # hash72 DB for these models, so this enables gpod-cp AND gpod-rm natively. See README.
-    && sed -i '/^[[:space:]]*ITDB_IPOD_GENERATION_NANO_2,/a\    ITDB_IPOD_GENERATION_CLASSIC_1,\n    ITDB_IPOD_GENERATION_CLASSIC_2,\n    ITDB_IPOD_GENERATION_CLASSIC_3,' src/lib/gpod-utils.c \
     && grep -n "ITDB_IPOD_GENERATION_CLASSIC" src/lib/gpod-utils.c \
     && autoreconf --install \
     && ./configure --prefix=/usr/local \
@@ -24,12 +30,12 @@ RUN git clone --depth 1 --branch "${GPOD_UTILS_REF}" https://github.com/whatdoin
     && make install DESTDIR=/out \
     && make install
 
-FROM debian:bookworm-slim
+FROM debian:trixie-slim
 
 # Runtime libs (match the -dev libs above), ffmpeg CLI, python for the engine + web UI.
 RUN apt-get update && apt-get install -y --no-install-recommends \
-        libglib2.0-0 libgpod4 libgpod-common libjson-c5 libsqlite3-0 \
-        libavformat59 libavcodec59 libavutil57 libswresample4 libswscale6 \
+        libglib2.0-0t64 libgpod4t64 libgpod-common libjson-c5 libsqlite3-0 \
+        libavformat61 libavcodec61 libavutil59 libswresample5 libswscale8 \
         ffmpeg \
         python3 python3-pip \
         dosfstools mtools udev eject sg3-utils librsvg2-bin \
