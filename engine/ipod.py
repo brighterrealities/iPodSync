@@ -134,7 +134,10 @@ class Ipod:
         in gpod_write_supported() (patched to include Classic) — no -F needed."""
         if not files:
             return
-        cmd = ["gpod-cp", "-M", self.mount, "-c", "-e", encoder, "-r", "Y" if replace else "N"]
+        # -r is an optional_argument in gpod-cp's getopt table, so its value must be
+        # attached ("-rY"). Passing "-r Y" leaves "Y" as a positional, i.e. gpod-cp
+        # treats it as a file to copy and logs a spurious "No such file or directory".
+        cmd = ["gpod-cp", "-M", self.mount, "-c", "-e", encoder, "-rY" if replace else "-rN"]
         if threads:
             cmd += ["-T", str(threads)]
         cmd += files
